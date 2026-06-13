@@ -76,6 +76,7 @@
 │   ├── AlarmService.cs      # 报警服务
 │   ├── DialogService.cs     # 对话框服务
 │   └── ...                  # 其他服务
+├── Resources/               # 资源文件夹（图标、样式、字体等）
 ├── App.xaml / App.xaml.cs   # 应用入口与 DI 配置
 ├── MainWindow.xaml          # 主窗口
 └── tests/                   # 单元测试
