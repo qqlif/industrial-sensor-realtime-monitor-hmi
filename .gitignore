@@ -360,4 +360,36 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
+
+# Claude / Copilot AI 辅助工具配置
+.claude/
+.copilot/
+.vscode/
+.idea/
+
+# Visual Studio user-specific files
+*.csproj.user
+*.csproj.Backup.tmp
+*.slnx.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet restore / packages
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Runtime / output data
+data/
+output/
+agent_memory/
+
+
 FodyWeavers.xsd
