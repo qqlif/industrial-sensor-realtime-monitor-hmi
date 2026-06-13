@@ -32,10 +32,6 @@
 - **SQLite 数据库存储**（可选）：结构化查询、高效率检索
 - 支持时间段筛选导出
 
-### 🤖 AI 助手集成
-- **AgentMemoryService**：基于大模型的智能记忆服务
-- **MCP Server 服务**：支持 Model Context Protocol 扩展
-
 ## 技术栈
 
 | 技术 | 说明 |
