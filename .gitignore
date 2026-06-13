@@ -392,4 +392,7 @@ output/
 agent_memory/
 
 
+# 项目方案文档（内部设计文档，不提交）
+项目方案.md
+
 FodyWeavers.xsd
