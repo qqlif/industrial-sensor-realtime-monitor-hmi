@@ -11,13 +11,16 @@ namespace 工业传感器实时监控上位机.Services;
 /// SQLite 数据持久化服务
 /// 提供高性能的传感器数据和报警记录存储，支持按时间范围查询和导出
 /// 作为 CsvDataStorage 的替代方案，适用于高频数据采集场景
+/// 线程安全：每个数据库操作创建独立连接（ADO.NET 连接池自动管理），避免共享连接竞态
+/// WAL 模式：允许并发读写，消除数据库锁定异常
 /// </summary>
 public class SqliteDataStorage : IDataStorage, IDisposable
 {
-    private readonly string _dbPath;            // SQLite 数据库文件路径
-    private SqliteConnection? _connection;       // 数据库连接
+    private readonly string _connectionString;  // SQLite 连接字符串（含 WAL 模式）
     private bool _disposed;                      // 是否已释放
-    private readonly SemaphoreSlim _writeLock = new(1, 1); // 写入锁，保证线程安全
+    private bool _initialized;                   // 是否已初始化建表
+    private readonly SemaphoreSlim _initLock = new(1, 1);     // 初始化锁
+    private readonly SemaphoreSlim _writeLock = new(1, 1);     // 写入锁，保证线程安全
 
     // 批量写入缓冲区（每 100 条刷写一次，减少 I/O 次数）
     private readonly List<SensorData> _sensorBuffer = new();
@@ -28,64 +31,98 @@ public class SqliteDataStorage : IDataStorage, IDisposable
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
         var dataDir = Path.Combine(baseDir, "data");
         Directory.CreateDirectory(dataDir);
-        _dbPath = Path.Combine(dataDir, "sensordb.sqlite");
+        var dbPath = Path.Combine(dataDir, "sensordb.sqlite");
+        // 启用 Shared Cache 模式，提升同一进程内多连接并发性能
+        _connectionString = $"Data Source={dbPath};Cache=Shared";
     }
 
     /// <summary>
-    /// 初始化数据库，创建表结构和索引
+    /// 初始化数据库，创建表结构和索引（线程安全，只执行一次）
     /// </summary>
     public async Task InitializeAsync()
     {
-        _connection = new SqliteConnection($"Data Source={_dbPath}");
-        await _connection.OpenAsync();
+        if (_initialized) return;
 
-        using var cmd = _connection.CreateCommand();
+        await _initLock.WaitAsync();
+        try
+        {
+            if (_initialized) return;
 
-        // 传感器数据表
-        cmd.CommandText = """
-            CREATE TABLE IF NOT EXISTS sensor_data (
-                id TEXT PRIMARY KEY,
-                sensor_type INTEGER NOT NULL,
-                sensor_name TEXT NOT NULL,
-                value REAL NOT NULL,
-                unit TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
-                is_alarm INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE INDEX IF NOT EXISTS idx_sensor_data_name ON sensor_data(sensor_name);
-            CREATE INDEX IF NOT EXISTS idx_sensor_data_time ON sensor_data(timestamp);
-            CREATE INDEX IF NOT EXISTS idx_sensor_data_name_time ON sensor_data(sensor_name, timestamp);
-            """;
-        await cmd.ExecuteNonQueryAsync();
+            using var conn = new SqliteConnection(_connectionString);
+            await conn.OpenAsync();
 
-        // 报警记录表
-        cmd.CommandText = """
-            CREATE TABLE IF NOT EXISTS alarm_records (
-                id TEXT PRIMARY KEY,
-                sensor_name TEXT NOT NULL,
-                sensor_type INTEGER NOT NULL,
-                alarm_time TEXT NOT NULL,
-                current_value REAL NOT NULL,
-                threshold REAL NOT NULL,
-                alarm_type TEXT NOT NULL,
-                unit TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_alarm_records_name ON alarm_records(sensor_name);
-            CREATE INDEX IF NOT EXISTS idx_alarm_records_time ON alarm_records(alarm_time);
-            CREATE INDEX IF NOT EXISTS idx_alarm_records_name_time ON alarm_records(sensor_name, alarm_time);
-            """;
-        await cmd.ExecuteNonQueryAsync();
+            using var cmd = conn.CreateCommand();
 
-        // 配置表
-        cmd.CommandText = """
-            CREATE TABLE IF NOT EXISTS app_config (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-            """;
-        await cmd.ExecuteNonQueryAsync();
+            // 开启 WAL 模式：允许并发读写，消除 database is locked 异常
+            cmd.CommandText = "PRAGMA journal_mode=WAL;";
+            await cmd.ExecuteNonQueryAsync();
 
-        System.Diagnostics.Debug.WriteLine("[SqliteDataStorage] 数据库初始化完成");
+            // 传感器数据表
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS sensor_data (
+                    id TEXT PRIMARY KEY,
+                    sensor_type INTEGER NOT NULL,
+                    sensor_name TEXT NOT NULL,
+                    value REAL NOT NULL,
+                    unit TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    is_alarm INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_sensor_data_name ON sensor_data(sensor_name);
+                CREATE INDEX IF NOT EXISTS idx_sensor_data_time ON sensor_data(timestamp);
+                CREATE INDEX IF NOT EXISTS idx_sensor_data_name_time ON sensor_data(sensor_name, timestamp);
+                """;
+            await cmd.ExecuteNonQueryAsync();
+
+            // 报警记录表
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS alarm_records (
+                    id TEXT PRIMARY KEY,
+                    sensor_name TEXT NOT NULL,
+                    sensor_type INTEGER NOT NULL,
+                    alarm_time TEXT NOT NULL,
+                    current_value REAL NOT NULL,
+                    threshold REAL NOT NULL,
+                    alarm_type TEXT NOT NULL,
+                    unit TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_alarm_records_name ON alarm_records(sensor_name);
+                CREATE INDEX IF NOT EXISTS idx_alarm_records_time ON alarm_records(alarm_time);
+                CREATE INDEX IF NOT EXISTS idx_alarm_records_name_time ON alarm_records(sensor_name, alarm_time);
+                """;
+            await cmd.ExecuteNonQueryAsync();
+
+            // 配置表
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS app_config (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                """;
+            await cmd.ExecuteNonQueryAsync();
+
+            _initialized = true;
+            System.Diagnostics.Debug.WriteLine("[SqliteDataStorage] 数据库初始化完成 (WAL模式)");
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// 创建并打开新连接（即开即用，利用 ADO.NET 连接池自动复用）
+    /// </summary>
+    private async Task<SqliteConnection> CreateConnectionAsync()
+    {
+        if (!_initialized)
+        {
+            await InitializeAsync();
+        }
+
+        var conn = new SqliteConnection(_connectionString);
+        await conn.OpenAsync();
+        return conn;
     }
 
     public async Task SaveSensorDataAsync(SensorData data)
@@ -122,11 +159,30 @@ public class SqliteDataStorage : IDataStorage, IDisposable
         }
     }
 
+    /// <summary>
+    /// 强制刷写缓冲区（在导出前调用确保数据完整性）
+    /// </summary>
+    public async Task FlushAsync()
+    {
+        await _writeLock.WaitAsync();
+        try
+        {
+            if (_sensorBuffer.Count > 0)
+            {
+                await FlushSensorBufferAsync();
+            }
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
     private async Task FlushSensorBufferAsync()
     {
-        if (_sensorBuffer.Count == 0 || _connection == null) return;
+        if (_sensorBuffer.Count == 0) return;
 
-        var conn = await GetConnectionAsync();
+        using var conn = await CreateConnectionAsync();
         using var transaction = conn.BeginTransaction();
         using var cmd = conn.CreateCommand();
 
@@ -185,7 +241,10 @@ public class SqliteDataStorage : IDataStorage, IDisposable
 
     public async Task ExportSensorDataAsync(DateTime start, DateTime end, string filePath)
     {
-        var conn = await GetConnectionAsync();
+        // 导出前先刷写缓冲区，确保数据完整性
+        await FlushAsync();
+
+        using var conn = await CreateConnectionAsync();
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
 
         using var cmd = conn.CreateCommand();
@@ -217,7 +276,7 @@ public class SqliteDataStorage : IDataStorage, IDisposable
 
     public async Task SaveAlarmRecordAsync(AlarmRecord record)
     {
-        var conn = await GetConnectionAsync();
+        using var conn = await CreateConnectionAsync();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT OR IGNORE INTO alarm_records (id, sensor_name, sensor_type, alarm_time, current_value, threshold, alarm_type, unit)
@@ -259,7 +318,7 @@ public class SqliteDataStorage : IDataStorage, IDisposable
     {
         try
         {
-            var conn = await GetConnectionAsync();
+            using var conn = await CreateConnectionAsync();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT value FROM app_config WHERE key = 'global_config'";
             var result = await cmd.ExecuteScalarAsync();
@@ -281,7 +340,7 @@ public class SqliteDataStorage : IDataStorage, IDisposable
     {
         try
         {
-            var conn = await GetConnectionAsync();
+            using var conn = await CreateConnectionAsync();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT OR REPLACE INTO app_config (key, value)
@@ -294,18 +353,6 @@ public class SqliteDataStorage : IDataStorage, IDisposable
         {
             System.Diagnostics.Debug.WriteLine($"[SqliteDataStorage] 保存配置失败: {ex.Message}");
         }
-    }
-
-    /// <summary>
-    /// 获取数据库连接，延迟初始化
-    /// </summary>
-    private async Task<SqliteConnection> GetConnectionAsync()
-    {
-        if (_connection == null)
-        {
-            await InitializeAsync();
-        }
-        return _connection!;
     }
 
     /// <summary>
@@ -327,25 +374,35 @@ public class SqliteDataStorage : IDataStorage, IDisposable
     }
 
     /// <summary>
-    /// 释放资源，刷写剩余缓冲区并关闭数据库连接
+    /// 释放资源，刷写剩余缓冲区
     /// </summary>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
 
-        // 刷写剩余缓冲区
-        if (_sensorBuffer.Count > 0)
+        try
         {
+            _writeLock.Wait(TimeSpan.FromSeconds(3));
             try
             {
-                FlushSensorBufferAsync().GetAwaiter().GetResult();
+                if (_sensorBuffer.Count > 0)
+                {
+                    FlushSensorBufferAsync().GetAwaiter().GetResult();
+                }
             }
             catch { }
+            finally
+            {
+                _writeLock.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[SqliteDataStorage] Dispose 等待锁超时: {ex.Message}");
         }
 
-        _connection?.Close();
-        _connection?.Dispose();
         _writeLock.Dispose();
+        _initLock.Dispose();
     }
 }

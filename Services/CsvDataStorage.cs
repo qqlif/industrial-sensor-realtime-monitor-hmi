@@ -112,10 +112,15 @@ public class CsvDataStorage : IDataStorage
         {
             try
             {
-                var lines = await File.ReadAllLinesAsync(csvFile, Encoding.UTF8);
+                // 使用 FileShare.ReadWrite 允许后台写入流同时读取，避免文件占用冲突
+                using var fs = new FileStream(csvFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs, Encoding.UTF8);
 
-                foreach (var line in lines.Skip(1)) // 跳过表头
+                string? line;
+                var isFirstLine = true;
+                while ((line = await reader.ReadLineAsync()) != null)
                 {
+                    if (isFirstLine) { isFirstLine = false; continue; } // 跳过表头
                     if (string.IsNullOrWhiteSpace(line)) continue;
 
                     var parts = line.Split(',');
@@ -206,6 +211,25 @@ public class CsvDataStorage : IDataStorage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"保存配置文件失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 强制刷写缓冲区（在导出/关闭前调用确保数据完整性）
+    /// </summary>
+    public async Task FlushAsync()
+    {
+        await _sensorLock.WaitAsync();
+        try
+        {
+            if (_sensorBuffer.Count > 0)
+            {
+                await FlushSensorBufferAsync();
+            }
+        }
+        finally
+        {
+            _sensorLock.Release();
         }
     }
 

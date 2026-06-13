@@ -1,3 +1,6 @@
-﻿<Solution>
+<Solution>
+  <Project Path="tests/工业传感器实时监控上位机.Tests/工业传感器实时监控上位机.Tests.csproj">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
   <Project Path="工业传感器实时监控上位机.csproj" />
 </Solution>

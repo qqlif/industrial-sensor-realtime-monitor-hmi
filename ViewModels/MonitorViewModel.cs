@@ -8,41 +8,74 @@ namespace 工业传感器实时监控上位机.ViewModels;
 
 /// <summary>
 /// 实时监控视图模型
-/// 管理仪表盘数据、实时曲线数据
+/// 管理仪表盘数据、实时曲线数据，支持多数据源切换（Mock/串口/TCP）
 /// </summary>
 public class MonitorViewModel : ViewModelBase, IDisposable
 {
-    private readonly ISensorSource _sensorSource;   // 传感器数据源
+    private readonly Func<string, ISensorSource> _sourceFactory; // 数据源工厂
+    private ISensorSource? _currentSource;                        // 当前数据源实例
+
     private readonly IDataStorage _dataStorage;      // 数据持久化服务
     private readonly IAlarmService _alarmService;    // 报警检查服务
     private readonly GlobalConfig _config;            // 全局配置
-    private readonly Dispatcher _dispatcher;          // UI 线程调度器，用于跨线程更新 UI
-    private readonly CancellationTokenSource _cts = new(); // 取消标记，用于停止后台任务
-    private bool _disposed;                           // 是否已释放
+    private readonly Dispatcher _dispatcher;          // UI 线程调度器
+    private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
 
-    // 各传感器最新数据（绑定到仪表盘显示）
-    private SensorData? _temperatureData;  // 温湿度传感器最新数据
-    private SensorData? _pressureData;     // 压力传感器最新数据
-    private SensorData? _vibrationData;    // 振动传感器最新数据
+    // 各传感器最新数据
+    private SensorData? _temperatureData;
+    private SensorData? _pressureData;
+    private SensorData? _vibrationData;
 
-    // 曲线数据缓存（按传感器名称，用于实时曲线绘制和导出）
+    // 曲线数据缓存
     private readonly ConcurrentDictionary<string, List<(DateTime Time, double Value)>> _chartData = new();
 
-    /// <summary>温湿度传感器最新数据</summary>
+    // --- 多数据源切换绑定属性 ---
+    private string _selectedSourceType = "Mock";
+    /// <summary>当前选中的数据源类型 (Mock, COM, TCP)</summary>
+    public string SelectedSourceType
+    {
+        get => _selectedSourceType;
+        set => SetProperty(ref _selectedSourceType, value);
+    }
+
+    private string _portName = "COM1";
+    /// <summary>串口号</summary>
+    public string PortName
+    {
+        get => _portName;
+        set => SetProperty(ref _portName, value);
+    }
+
+    private string _tcpHost = "127.0.0.1";
+    /// <summary>TCP 主机地址</summary>
+    public string TcpHost
+    {
+        get => _tcpHost;
+        set => SetProperty(ref _tcpHost, value);
+    }
+
+    private int _tcpPort = 502;
+    /// <summary>TCP 端口号</summary>
+    public int TcpPort
+    {
+        get => _tcpPort;
+        set => SetProperty(ref _tcpPort, value);
+    }
+    // -------------------------
+
     public SensorData? TemperatureData
     {
         get => _temperatureData;
         set => SetProperty(ref _temperatureData, value);
     }
 
-    /// <summary>压力传感器最新数据</summary>
     public SensorData? PressureData
     {
         get => _pressureData;
         set => SetProperty(ref _pressureData, value);
     }
 
-    /// <summary>振动传感器最新数据</summary>
     public SensorData? VibrationData
     {
         get => _vibrationData;
@@ -50,7 +83,6 @@ public class MonitorViewModel : ViewModelBase, IDisposable
     }
 
     private string _sourceStatus = "就绪";
-    /// <summary>数据源状态文本（就绪/运行中/已停止/异常信息）</summary>
     public string SourceStatus
     {
         get => _sourceStatus;
@@ -58,7 +90,6 @@ public class MonitorViewModel : ViewModelBase, IDisposable
     }
 
     private bool _isSourceRunning;
-    /// <summary>数据源是否正在运行</summary>
     public bool IsSourceRunning
     {
         get => _isSourceRunning;
@@ -70,25 +101,20 @@ public class MonitorViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>是否可以启动（数据源未运行时）</summary>
     public bool CanStart => !IsSourceRunning;
-
-    /// <summary>是否可以停止（数据源运行时）</summary>
     public bool CanStop => IsSourceRunning;
-
-    /// <summary>曲线数据更新事件，通知 View 刷新实时曲线</summary>
     public event Action? ChartDataUpdated;
 
-    /// <summary>启动数据源命令</summary>
     public ICommand StartCommand { get; }
-
-    /// <summary>停止数据源命令</summary>
     public ICommand StopCommand { get; }
 
-    public MonitorViewModel(ISensorSource sensorSource, IDataStorage dataStorage,
+    /// <summary>
+    /// 构造函数注入数据源工厂和依赖服务
+    /// </summary>
+    public MonitorViewModel(Func<string, ISensorSource> sourceFactory, IDataStorage dataStorage,
         IAlarmService alarmService, GlobalConfig config)
     {
-        _sensorSource = sensorSource;
+        _sourceFactory = sourceFactory;
         _dataStorage = dataStorage;
         _alarmService = alarmService;
         _config = config;
@@ -97,15 +123,56 @@ public class MonitorViewModel : ViewModelBase, IDisposable
         StartCommand = new AsyncRelayCommand(_ => StartAsync());
         StopCommand = new RelayCommand(_ => Stop());
 
-        _sensorSource.DataReceived += OnDataReceived;
-        _sensorSource.StatusChanged += OnStatusChanged;
-        _sensorSource.ErrorOccurred += OnError;
-
         // 初始化曲线缓存
         foreach (var sensor in _config.Sensors)
         {
             _chartData[sensor.Name] = new List<(DateTime, double)>();
         }
+
+        // 初始化默认数据源（模拟）
+        SwitchSource();
+    }
+
+    /// <summary>
+    /// 核心逻辑：切换数据源并初始化参数
+    /// 自动释放旧源硬件资源（串口/TCP连接）
+    /// </summary>
+    private void SwitchSource()
+    {
+        // 1. 停止并释放旧数据源
+        if (_currentSource != null)
+        {
+            _currentSource.Stop();
+            _currentSource.DataReceived -= OnDataReceived;
+            _currentSource.StatusChanged -= OnStatusChanged;
+            _currentSource.ErrorOccurred -= OnError;
+
+            if (_currentSource is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+
+        // 2. 通过工厂创建新数据源
+        _currentSource = _sourceFactory(SelectedSourceType);
+
+        // 3. 将 UI 参数传递给具体的数据源实例
+        if (_currentSource is SerialSensorSource comSource)
+        {
+            comSource.PortName = PortName;
+        }
+        else if (_currentSource is TcpSensorSource tcpSource)
+        {
+            tcpSource.Host = TcpHost;
+            tcpSource.Port = TcpPort;
+        }
+
+        // 4. 重新绑定事件
+        _currentSource.DataReceived += OnDataReceived;
+        _currentSource.StatusChanged += OnStatusChanged;
+        _currentSource.ErrorOccurred += OnError;
+
+        SourceStatus = $"已准备: {_currentSource.SourceName}";
     }
 
     /// <summary>
@@ -115,11 +182,15 @@ public class MonitorViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            await _sensorSource.StartAsync(_cts.Token);
+            // 每次启动前应用最新的 UI 选项和参数
+            SwitchSource();
+
+            await _currentSource!.StartAsync(_cts.Token);
             IsSourceRunning = true;
         }
         catch (Exception ex)
         {
+            SourceStatus = $"启动失败: {ex.Message}";
             System.Diagnostics.Debug.WriteLine($"启动数据源失败: {ex.Message}");
         }
     }
@@ -129,7 +200,7 @@ public class MonitorViewModel : ViewModelBase, IDisposable
     /// </summary>
     private void Stop()
     {
-        _sensorSource.Stop();
+        _currentSource?.Stop();
         IsSourceRunning = false;
         SourceStatus = "已停止";
     }
@@ -140,7 +211,6 @@ public class MonitorViewModel : ViewModelBase, IDisposable
     /// </summary>
     private void OnDataReceived(SensorData data)
     {
-        // 第一步：更新仪表盘数据（切换到 UI 线程执行，避免跨线程访问绑定属性）
         _dispatcher.Invoke(() =>
         {
             switch (data.SensorType)
@@ -157,80 +227,61 @@ public class MonitorViewModel : ViewModelBase, IDisposable
             }
         });
 
-        // 第二步：添加到曲线缓存（供实时曲线绘制和数据导出使用）
         if (_chartData.TryGetValue(data.SensorName, out var list))
         {
             lock (list)
             {
                 list.Add((data.Timestamp, data.Value));
-                // 限制缓存数量，超出时移除最旧的数据点
                 while (list.Count > _config.MaxCachePoints)
-                {
                     list.RemoveAt(0);
-                }
             }
         }
 
-        // 第三步：触发曲线刷新事件（通过 Dispatcher 确保在 UI 线程执行）
         _dispatcher.Invoke(() => ChartDataUpdated?.Invoke());
 
-        // 第四步：报警检查，判断数据是否超出阈值
         var sensorConfig = _config.Sensors.FirstOrDefault(s => s.Name == data.SensorName);
         if (sensorConfig != null)
-        {
             _alarmService.CheckAlarm(data, sensorConfig);
-        }
 
-        // 第五步：异步持久化到存储（不阻塞当前流程）
         _ = _dataStorage.SaveSensorDataAsync(data);
     }
 
-    /// <summary>
-    /// 数据源状态变化事件处理
-    /// </summary>
     private void OnStatusChanged(string status)
     {
         _dispatcher.Invoke(() => SourceStatus = status);
     }
 
-    /// <summary>
-    /// 数据源异常事件处理
-    /// </summary>
     private void OnError(Exception ex)
     {
         _dispatcher.Invoke(() => SourceStatus = $"异常: {ex.Message}");
     }
 
-    /// <summary>
-    /// 获取指定传感器的曲线缓存数据（线程安全）
-    /// </summary>
-    /// <param name="sensorName">传感器名称</param>
-    /// <returns>时间-数值点列表副本</returns>
     public List<(DateTime Time, double Value)> GetChartData(string sensorName)
     {
         if (_chartData.TryGetValue(sensorName, out var list))
         {
             lock (list)
-            {
                 return new List<(DateTime, double)>(list);
-            }
         }
         return new List<(DateTime, double)>();
     }
 
-    /// <summary>
-    /// 释放资源，取消后台任务并取消事件订阅
-    /// </summary>
     public void Dispose()
     {
-        if (_disposed)
-            return;
+        if (_disposed) return;
         _disposed = true;
 
         _cts.Cancel();
         _cts.Dispose();
-        _sensorSource.DataReceived -= OnDataReceived;
-        _sensorSource.StatusChanged -= OnStatusChanged;
-        _sensorSource.ErrorOccurred -= OnError;
+
+        if (_currentSource != null)
+        {
+            _currentSource.Stop();
+            _currentSource.DataReceived -= OnDataReceived;
+            _currentSource.StatusChanged -= OnStatusChanged;
+            _currentSource.ErrorOccurred -= OnError;
+            if (_currentSource is IDisposable disposable)
+                disposable.Dispose();
+        }
     }
 }

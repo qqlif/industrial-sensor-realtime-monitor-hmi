@@ -6,15 +6,32 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- MaterialDesign 主题资源 -->
+                <!-- MaterialDesign 主题资源：工业青 + 琥珀色强调 -->
                 <materialDesign:BundledTheme BaseTheme="Dark" 
-                                             PrimaryColor="Indigo" 
-                                             SecondaryColor="Teal"
-                                             ColorAdjustment="{materialDesign:ColorAdjustment}"/>
+                                             PrimaryColor="Cyan" 
+                                             SecondaryColor="Amber" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- 全局样式 -->
+            <!-- 全局转换器 -->
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+
+            <!-- 自定义工业风配色画刷 -->
+            <SolidColorBrush x:Key="AppBackground" Color="#0D1117" />
+            <SolidColorBrush x:Key="CardBackground" Color="#161B22" />
+            <SolidColorBrush x:Key="TechCyan" Color="#00E5FF" />
+            <SolidColorBrush x:Key="PrimaryText" Color="#E6EDF3" />
+            <SolidColorBrush x:Key="SecondaryText" Color="#8B949E" />
+            <SolidColorBrush x:Key="ColorTemp" Color="#29B6F6" />
+            <SolidColorBrush x:Key="ColorPressure" Color="#FFB74D" />
+            <SolidColorBrush x:Key="ColorVibration" Color="#BA68C8" />
+
+            <!-- 覆盖 MaterialDesign 默认画刷 -->
+            <SolidColorBrush x:Key="MaterialDesignPaper" Color="#0D1117" />
+            <SolidColorBrush x:Key="MaterialDesignCardBackground" Color="#161B22" />
+            <SolidColorBrush x:Key="MaterialDesignBody" Color="#E6EDF3" />
+
+            <!-- 页面标题样式 -->
             <Style TargetType="TextBlock" x:Key="PageTitleStyle">
                 <Setter Property="FontSize" Value="22"/>
                 <Setter Property="FontWeight" Value="Bold"/>
@@ -22,16 +39,41 @@
                 <Setter Property="Margin" Value="0,0,0,15"/>
             </Style>
 
-            <Style TargetType="Button" x:Key="NavButtonStyle" BasedOn="{StaticResource MaterialDesignFlatButton}">
-                <Setter Property="HorizontalAlignment" Value="Stretch"/>
-                <Setter Property="Height" Value="48"/>
-                <Setter Property="Margin" Value="0,0,0,4"/>
-                <Setter Property="Foreground" Value="#B0BEC5"/>
-                <Setter Property="FontSize" Value="14"/>
-                <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                <Setter Property="Padding" Value="16,0"/>
+            <!-- 左侧导航栏列表项样式（带选中指示条） -->
+            <Style TargetType="ListBoxItem" x:Key="NavListBoxItemStyle">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource SecondaryText}"/>
+                <Setter Property="Height" Value="50"/>
+                <Setter Property="Margin" Value="8,4"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                <Grid>
+                                    <Border x:Name="Indicator" Width="4" HorizontalAlignment="Left" 
+                                            Background="{StaticResource TechCyan}" 
+                                            CornerRadius="2" Margin="0,8" Visibility="Collapsed"/>
+                                    <ContentPresenter VerticalAlignment="Center" Margin="16,0,0,0"/>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#21262D"/>
+                                    <Setter Property="Foreground" Value="{StaticResource PrimaryText}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#1F2937"/>
+                                    <Setter Property="Foreground" Value="{StaticResource TechCyan}"/>
+                                    <Setter TargetName="Indicator" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
+            <!-- 按钮样式 -->
             <Style TargetType="Button" x:Key="DangerButtonStyle" BasedOn="{StaticResource MaterialDesignRaisedButton}">
                 <Setter Property="Background" Value="#F44336"/>
                 <Setter Property="Foreground" Value="White"/>

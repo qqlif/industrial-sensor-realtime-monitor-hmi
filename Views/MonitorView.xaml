@@ -10,9 +10,6 @@
              d:DesignHeight="700" d:DesignWidth="1200"
              TextElement.Foreground="{DynamicResource MaterialDesignBody}"
              Background="Transparent">
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
-    </UserControl.Resources>
     <Grid Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -20,7 +17,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部：数据源控制 -->
+        <!-- 顶部：数据源控制（支持多源切换：Mock/串口/TCP） -->
         <Border Grid.Row="0"
                 Effect="{DynamicResource MaterialDesignShadowDepth1}"
                 Background="{DynamicResource MaterialDesignCardBackground}"
@@ -40,19 +37,69 @@
                          VerticalAlignment="Center" Margin="0,0,8,0"/>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="数据源状态：" FontSize="13"
-                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
-                    <TextBlock Text="{Binding SourceStatus}" FontSize="13"
-                               FontWeight="Bold" Margin="4,0,0,0"/>
+                    <TextBlock Text="数据源:" VerticalAlignment="Center" FontSize="13"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,8,0"/>
+
+                    <ComboBox Width="130" SelectedValue="{Binding SelectedSourceType}"
+                              SelectedValuePath="Tag"
+                              IsEnabled="{Binding CanStart}" Margin="0,0,16,0">
+                        <ComboBoxItem Content="模拟测试 (Mock)" Tag="Mock"/>
+                        <ComboBoxItem Content="串口通讯 (COM)" Tag="COM"/>
+                        <ComboBoxItem Content="网络通讯 (TCP)" Tag="TCP"/>
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedSourceType}" Value="COM">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="端口号:" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,8,0"/>
+                        <TextBox Text="{Binding PortName}" Width="80"
+                                 IsEnabled="{Binding CanStart}"
+                                 materialDesign:HintAssist.Hint="例如 COM1"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedSourceType}" Value="TCP">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="IP地址:" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,8,0"/>
+                        <TextBox Text="{Binding TcpHost}" Width="110"
+                                 IsEnabled="{Binding CanStart}" Margin="0,0,16,0"/>
+                        <TextBlock Text="端口:" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MaterialDesignBodyLight}" Margin="0,0,8,0"/>
+                        <TextBox Text="{Binding TcpPort}" Width="60"
+                                 IsEnabled="{Binding CanStart}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding SourceStatus}" FontSize="13" FontWeight="Bold"
+                               Margin="16,0,0,0"
+                               Foreground="{DynamicResource PrimaryHueMidBrush}"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <Button Grid.Column="2" Content="启动数据源"
+                <Button Grid.Column="2" Content="启动采集"
                         Command="{Binding StartCommand}"
                         IsEnabled="{Binding CanStart}"
                         Style="{StaticResource SuccessButtonStyle}"
                         Margin="0,0,8,0"/>
 
-                <Button Grid.Column="3" Content="停止数据源"
+                <Button Grid.Column="3" Content="停止采集"
                         Command="{Binding StopCommand}"
                         IsEnabled="{Binding CanStop}"
                         Style="{StaticResource DangerButtonStyle}"/>
@@ -99,7 +146,7 @@
                     <Border CornerRadius="4" Background="#F44336" Padding="6,2"
                             HorizontalAlignment="Center" Margin="0,8,0,0"
                             Visibility="{Binding TemperatureData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="⚠ 报警"
+                                <TextBlock Text="? 报警"
                                    HorizontalAlignment="Center"/>
                     </Border>
                 </StackPanel>
@@ -137,7 +184,7 @@
                     <Border CornerRadius="4" Background="#F44336" Padding="6,2"
                             HorizontalAlignment="Center" Margin="0,8,0,0"
                             Visibility="{Binding PressureData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="⚠ 报警"
+                                <TextBlock Text="? 报警"
                                    HorizontalAlignment="Center"/>
                     </Border>
                 </StackPanel>
@@ -175,7 +222,7 @@
                     <Border CornerRadius="4" Background="#F44336" Padding="6,2"
                             HorizontalAlignment="Center" Margin="0,8,0,0"
                             Visibility="{Binding VibrationData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="⚠ 报警"
+                                <TextBlock Text="? 报警"
                                    HorizontalAlignment="Center"/>
                     </Border>
                 </StackPanel>
@@ -206,25 +253,23 @@
                             Margin="0" Padding="0"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
-                            Style="{StaticResource MaterialDesignFilledTabControl}"
-                            materialDesign:ColorZoneAssist.Mode="Standard"
-                            SelectionChanged="TabControl_SelectionChanged">
-                    <TabItem Header="温湿度" Padding="0" Margin="0">
-                        <Grid Margin="0">
+                            Style="{StaticResource MaterialDesignTabControl}" SelectionChanged="TabControl_SelectionChanged">
+                    <TabItem Header="温湿度" >
+                        <Grid>
                             <ScottPlot:WpfPlot x:Name="TemperaturePlot"
                                                HorizontalAlignment="Stretch"
                                                VerticalAlignment="Stretch"/>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="压力" Padding="0" Margin="0">
-                        <Grid Margin="0">
+                    <TabItem Header="压力" >
+                        <Grid>
                             <ScottPlot:WpfPlot x:Name="PressurePlot"
                                                HorizontalAlignment="Stretch"
                                                VerticalAlignment="Stretch"/>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="振动" Padding="0" Margin="0">
-                        <Grid Margin="0">
+                    <TabItem Header="振动" >
+                        <Grid>
                             <ScottPlot:WpfPlot x:Name="VibrationPlot"
                                                HorizontalAlignment="Stretch"
                                                VerticalAlignment="Stretch"/>
@@ -235,3 +280,4 @@
         </Border>
     </Grid>
 </UserControl>
+

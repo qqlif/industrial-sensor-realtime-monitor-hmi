@@ -87,8 +87,25 @@ public class AlarmLogViewModel : ViewModelBase
 
     /// <summary>
     /// 刷新报警记录列表（按当前筛选条件从报警服务获取数据）
+    /// 通过 Dispatcher 调度到 UI 线程，避免后台线程触发时修改 ObservableCollection 导致异常
     /// </summary>
     private void RefreshRecords()
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(() => RefreshRecordsCore());
+        }
+        else
+        {
+            RefreshRecordsCore();
+        }
+    }
+
+    /// <summary>
+    /// 实际刷新逻辑（始终在 UI 线程执行）
+    /// </summary>
+    private void RefreshRecordsCore()
     {
         DisplayRecords.Clear();
 

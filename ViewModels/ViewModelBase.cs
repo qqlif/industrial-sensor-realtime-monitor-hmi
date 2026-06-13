@@ -88,6 +88,7 @@ public class AsyncRelayCommand : ICommand
 
     /// <summary>
     /// 异步执行命令，执行期间自动锁定
+    /// async void 的异常会直接崩溃进程，必须在顶层捕获
     /// </summary>
     public async void Execute(object? parameter)
     {
@@ -98,6 +99,11 @@ public class AsyncRelayCommand : ICommand
         try
         {
             await _execute(parameter);
+        }
+        catch (Exception ex)
+        {
+            // 防止 async void 未捕获异常导致进程崩溃
+            System.Diagnostics.Debug.WriteLine($"[AsyncRelayCommand] 命令执行异常: {ex.Message}");
         }
         finally
         {

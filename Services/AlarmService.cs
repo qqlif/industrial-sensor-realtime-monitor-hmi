@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Data;
 using 工业传感器实时监控上位机.Models;
 
 namespace 工业传感器实时监控上位机.Services;
@@ -23,6 +24,9 @@ public class AlarmService : IAlarmService
     public AlarmService(IDataStorage storage)
     {
         _storage = storage;
+
+        // 启用集合跨线程同步，允许后台线程安全读写 AlarmRecords
+        BindingOperations.EnableCollectionSynchronization(AlarmRecords, _lock);
     }
 
     /// <summary>
@@ -73,12 +77,11 @@ public class AlarmService : IAlarmService
 
     /// <summary>
     /// 添加报警记录（含 5 秒内同传感器同类型去重）
-    /// 确保 UI 线程安全并异步持久化
+    /// 通过 EnableCollectionSynchronization 确保线程安全
     /// </summary>
     private void AddAlarmRecord(AlarmRecord record)
     {
         // 去重检查：同一传感器同一类型 5 秒内不重复报警
-        bool shouldAdd;
         lock (_lock)
         {
             var lastRecord = AlarmRecords.LastOrDefault(r =>
@@ -86,20 +89,15 @@ public class AlarmService : IAlarmService
                 r.AlarmType == record.AlarmType &&
                 (record.AlarmTime - r.AlarmTime).TotalSeconds < 5);
 
-            shouldAdd = lastRecord == null;
-        }
+            if (lastRecord != null) return;
 
-        if (!shouldAdd) return;
+            // 保持最多 1000 条记录，超出则移除最旧的
+            if (AlarmRecords.Count >= 1000)
+            {
+                AlarmRecords.RemoveAt(0);
+            }
 
-        // ObservableCollection 必须在 UI 线程上修改
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher != null && !dispatcher.CheckAccess())
-        {
-            dispatcher.Invoke(() => AddToCollection(record));
-        }
-        else
-        {
-            AddToCollection(record);
+            AlarmRecords.Add(record);
         }
 
         // 异步持久化报警记录到存储（后台线程安全，不阻塞 UI）
@@ -120,30 +118,11 @@ public class AlarmService : IAlarmService
     }
 
     /// <summary>
-    /// 将报警记录添加到集合，超出 1000 条时移除最旧的记录
-    /// </summary>
-    private void AddToCollection(AlarmRecord record)
-    {
-        // 保持最多 1000 条记录，超出则移除最旧的
-        if (AlarmRecords.Count >= 1000)
-        {
-            AlarmRecords.RemoveAt(0);
-        }
-
-        AlarmRecords.Add(record);
-    }
-
-    /// <summary>
-    /// 清除所有报警记录（UI 线程安全）
+    /// 清除所有报警记录（线程安全，通过 BindingOperations 同步）
     /// </summary>
     public void ClearAlarms()
     {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher != null && !dispatcher.CheckAccess())
-        {
-            dispatcher.Invoke(() => AlarmRecords.Clear());
-        }
-        else
+        lock (_lock)
         {
             AlarmRecords.Clear();
         }
@@ -154,7 +133,7 @@ public class AlarmService : IAlarmService
     /// </summary>
     /// <param name="sensorName">传感器名称（支持模糊匹配）</param>
     /// <param name="start">筛选起始时间</param>
-    /// <param name="end">筛选结束时间</param>
+    /// <param name="end">筛选结束时间（自动扩展到当天最后一刻）</param>
     /// <returns>符合条件的报警记录列表</returns>
     public IEnumerable<AlarmRecord> FilterAlarms(string? sensorName = null, DateTime? start = null, DateTime? end = null)
     {
@@ -169,7 +148,11 @@ public class AlarmService : IAlarmService
                 query = query.Where(r => r.AlarmTime >= start.Value);
 
             if (end.HasValue)
-                query = query.Where(r => r.AlarmTime <= end.Value);
+            {
+                // DatePicker 只绑定日期（00:00:00），需扩展到当天最后一刻
+                var adjustedEnd = end.Value.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(r => r.AlarmTime <= adjustedEnd);
+            }
 
             return query.ToList();
         }

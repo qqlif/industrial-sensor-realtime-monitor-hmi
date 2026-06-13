@@ -1,0 +1,220 @@
+<UserControl x:Class="工业传感器实时监控上位机.Views.StatisticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1000"
+             TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+             Background="Transparent">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+            <materialDesign:PackIcon Kind="ChartBellCurve" Width="24" Height="24"
+                                    Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                    VerticalAlignment="Center"/>
+            <TextBlock Text=" 数据统计分析" FontSize="22" FontWeight="Bold" 
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- 时间范围选择 -->
+        <Border Grid.Row="1" 
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12" Padding="16" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="起始:" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                <DatePicker Grid.Column="1" SelectedDate="{Binding StartTime}" 
+                            Margin="0,0,16,0" Width="130"/>
+
+                <TextBlock Grid.Column="2" Text="结束:" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                <DatePicker Grid.Column="3" SelectedDate="{Binding EndTime}" 
+                            Margin="0,0,16,0" Width="130"/>
+
+                <!-- 快捷选择按钮 -->
+                <Button Grid.Column="4" Content="最近1小时" 
+                        Command="{Binding QuickLastHourCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Margin="0,0,4,0" FontSize="12"/>
+                <Button Grid.Column="5" Content="今天" 
+                        Command="{Binding QuickTodayCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Margin="0,0,4,0" FontSize="12"/>
+                <Button Grid.Column="6" Content="最近7天" 
+                        Command="{Binding QuickLastWeekCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Margin="0,0,16,0" FontSize="12"/>
+
+                <Button Grid.Column="8" Content="开始统计" 
+                        Command="{Binding CalculateCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        materialDesign:ButtonProgressAssist.IsIndeterminate="{Binding IsCalculating}"
+                        materialDesign:ButtonProgressAssist.Value="-1"/>
+            </Grid>
+        </Border>
+
+        <!-- 统计结果区域 -->
+        <Border Grid.Row="2" 
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12" Padding="20" Margin="0,0,0,12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 计算中提示 -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" 
+                            Visibility="{Binding IsCalculating, Converter={StaticResource BoolToVisConverter}}"
+                            Margin="0,0,0,12">
+                    <materialDesign:PackIcon Kind="Loading" Width="18" Height="18"
+                                            Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                            VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- 状态文本 -->
+                <TextBlock Grid.Row="0" Text="{Binding StatusText}" 
+                           Visibility="{Binding IsCalculating, Converter={StaticResource BoolToVisConverter}, ConverterParameter=False}"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"
+                           Margin="0,0,0,12"/>
+
+                <!-- 统计结果卡片列表 -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HasResults, Converter={StaticResource BoolToVisConverter}}">
+                    <ItemsControl ItemsSource="{Binding StatisticsResults}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                                        Background="{DynamicResource MaterialDesignCardBackground}"
+                                        CornerRadius="12" Padding="20" Margin="0,0,0,12"
+                                        BorderBrush="{DynamicResource PrimaryHueMidBrush}" 
+                                        BorderThickness="0,0,0,3">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- 传感器名称 -->
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4"
+                                                   Text="{Binding SensorName}" 
+                                                   FontSize="18" FontWeight="Bold" Margin="0,0,0,16"/>
+
+                                        <!-- 数据点数 -->
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,12">
+                                            <TextBlock Text="数据点数" FontSize="12" 
+                                                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                            <TextBlock Text="{Binding DataPointCount}" FontSize="22" FontWeight="Light"/>
+                                        </StackPanel>
+
+                                        <!-- 数值范围 -->
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,8,12">
+                                            <TextBlock Text="数值范围" FontSize="12" 
+                                                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                            <TextBlock Text="{Binding RangeText}" FontSize="16" FontWeight="Medium"/>
+                                        </StackPanel>
+
+                                        <!-- 平均值 -->
+                                        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,8,12">
+                                            <TextBlock Text="平均值" FontSize="12" 
+                                                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                            <TextBlock Text="{Binding AverageText}" FontSize="16" FontWeight="Medium"/>
+                                        </StackPanel>
+
+                                        <!-- 标准差 -->
+                                        <StackPanel Grid.Row="1" Grid.Column="3" Margin="0,0,0,12">
+                                            <TextBlock Text="标准差" FontSize="12" 
+                                                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                            <TextBlock Text="{Binding StdDevText}" FontSize="16" FontWeight="Medium"
+                                                       Foreground="{DynamicResource MaterialDesignBody}"/>
+                                        </StackPanel>
+
+                                        <!-- 第二行 -->
+                                        <!-- 趋势 -->
+                                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBlock Text="趋势方向" FontSize="12" 
+                                                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                            <TextBlock Text="{Binding TrendDescription}" FontSize="16" FontWeight="Medium"/>
+                                        </StackPanel>
+
+                                        <!-- 报警统计 -->
+                                        <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,0">
+                                            <TextBlock Text="报警统计" FontSize="12" 
+                                                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                                            <TextBlock Text="{Binding AlarmCountText}" FontSize="14" FontWeight="Medium"
+                                                       Foreground="#F44336"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- 空状态提示 -->
+                <TextBlock Grid.Row="1" Text="暂无统计数据，请选择时间范围并点击「开始统计」" 
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"
+                           Visibility="{Binding HasResults, Converter={StaticResource BoolToVisConverter}, ConverterParameter=False}"/>
+            </Grid>
+        </Border>
+
+        <!-- 底部统计信息 -->
+        <Border Grid.Row="3" 
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12" Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}">
+                    <Run Text="选择时间范围后点击"/>
+                    <Run Text="「开始统计」" FontWeight="Bold"/>
+                    <Run Text="查看各传感器数据统计摘要"/>
+                </TextBlock>
+
+                <Button Grid.Column="1" Content="刷新统计" 
+                        Command="{Binding CalculateCommand}" 
+                        Style="{StaticResource PrimaryButtonStyle}"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

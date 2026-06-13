@@ -29,4 +29,7 @@ public interface IDataStorage
 
     /// <summary>保存全局配置到持久化存储</summary>
     Task SaveConfigAsync(GlobalConfig config);
+
+    /// <summary>强制刷写缓冲区（在导出/关闭前调用确保数据完整性）</summary>
+    Task FlushAsync();
 }

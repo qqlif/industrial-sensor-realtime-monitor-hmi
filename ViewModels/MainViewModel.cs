@@ -4,13 +4,14 @@ namespace 工业传感器实时监控上位机.ViewModels;
 
 /// <summary>
 /// 主视图模型
-/// 管理页面导航和全局状态，通过命令切换实时监控、参数配置、报警日志等页面
+/// 管理页面导航和全局状态，通过命令切换实时监控、参数配置、报警日志、数据统计等页面
 /// </summary>
 public class MainViewModel : ViewModelBase, IDisposable
 {
-    private readonly MonitorViewModel _monitorViewModel;    // 实时监控视图模型
-    private readonly ConfigViewModel _configViewModel;      // 参数配置视图模型
-    private readonly AlarmLogViewModel _alarmLogViewModel;  // 报警日志视图模型
+    private readonly MonitorViewModel _monitorViewModel;      // 实时监控视图模型
+    private readonly ConfigViewModel _configViewModel;        // 参数配置视图模型
+    private readonly AlarmLogViewModel _alarmLogViewModel;    // 报警日志视图模型
+    private readonly StatisticsViewModel _statisticsViewModel; // 数据统计视图模型
 
     private ViewModelBase _currentViewModel;
     /// <summary>当前显示的视图模型（绑定到主内容区域）</summary>
@@ -37,21 +38,26 @@ public class MainViewModel : ViewModelBase, IDisposable
     /// <summary>导航到报警日志页面命令</summary>
     public ICommand NavigateToAlarmLogCommand { get; }
 
+    /// <summary>导航到数据统计页面命令</summary>
+    public ICommand NavigateToStatisticsCommand { get; }
+
     /// <summary>实时监控视图模型（供父级访问）</summary>
     public MonitorViewModel MonitorVM => _monitorViewModel;
 
     public MainViewModel(MonitorViewModel monitorViewModel, ConfigViewModel configViewModel,
-        AlarmLogViewModel alarmLogViewModel)
+        AlarmLogViewModel alarmLogViewModel, StatisticsViewModel statisticsViewModel)
     {
         _monitorViewModel = monitorViewModel;
         _configViewModel = configViewModel;
         _alarmLogViewModel = alarmLogViewModel;
+        _statisticsViewModel = statisticsViewModel;
 
         _currentViewModel = _monitorViewModel;
 
         NavigateToMonitorCommand = new RelayCommand(_ => NavigateTo(_monitorViewModel, "实时监控"));
         NavigateToConfigCommand = new RelayCommand(_ => NavigateTo(_configViewModel, "参数配置"));
         NavigateToAlarmLogCommand = new RelayCommand(_ => NavigateTo(_alarmLogViewModel, "报警日志"));
+        NavigateToStatisticsCommand = new RelayCommand(_ => NavigateTo(_statisticsViewModel, "数据统计"));
     }
 
     /// <summary>
@@ -73,5 +79,6 @@ public class MainViewModel : ViewModelBase, IDisposable
         _monitorViewModel.Dispose();
         (_configViewModel as IDisposable)?.Dispose();
         (_alarmLogViewModel as IDisposable)?.Dispose();
+        (_statisticsViewModel as IDisposable)?.Dispose();
     }
 }

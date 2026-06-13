@@ -1,4 +1,4 @@
-<UserControl x:Class="工业传感器实时监控上位机.Views.AlarmLogView"
+﻿<UserControl x:Class="工业传感器实时监控上位机.Views.AlarmLogView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -43,9 +43,16 @@
 
                 <TextBlock Grid.Column="0" Text="传感器:" VerticalAlignment="Center" Margin="0,0,8,0"
                            Foreground="{DynamicResource MaterialDesignBodyLight}"/>
-                <TextBox Grid.Column="1" 
-                         Text="{Binding FilterSensorName}" 
-                         Margin="0,0,16,0" Width="140"/>
+                <ComboBox Grid.Column="1" 
+                          Text="{Binding FilterSensorName}"
+                          IsEditable="True"
+                          Margin="0,0,16,0" Width="140"
+                          materialDesign:HintAssist.Hint="选择或输入">
+                    <ComboBoxItem Content=""/>
+                    <ComboBoxItem Content="温湿度传感器"/>
+                    <ComboBoxItem Content="压力传感器"/>
+                    <ComboBoxItem Content="振动传感器"/>
+                </ComboBox>
 
                 <TextBlock Grid.Column="2" Text="开始:" VerticalAlignment="Center" Margin="0,0,8,0"
                            Foreground="{DynamicResource MaterialDesignBodyLight}"/>

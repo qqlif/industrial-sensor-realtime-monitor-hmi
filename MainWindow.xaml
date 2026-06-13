@@ -19,6 +19,37 @@
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         Background="{DynamicResource MaterialDesignPaper}"
         FontFamily="{DynamicResource MaterialDesignFont}">
+    <Window.Resources>
+        <!-- 左侧导航按钮样式 -->
+        <Style x:Key="NavButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                Padding="16,0">
+                            <ContentPresenter HorizontalAlignment="Left"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignFlatButtonHoverBackground}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignFlatButtonRippleBackground}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200"/>
@@ -52,8 +83,7 @@
 
                 <!-- 导航按钮 -->
                 <StackPanel Grid.Row="1" Margin="8,0">
-                    <Button Content="      实时监控" 
-                            Command="{Binding NavigateToMonitorCommand}"
+                    <Button Command="{Binding NavigateToMonitorCommand}"
                             Style="{StaticResource NavButtonStyle}">
                         <Button.ContentTemplate>
                             <DataTemplate>
@@ -69,8 +99,7 @@
                         </Button.ContentTemplate>
                     </Button>
 
-                    <Button Content="      参数配置"
-                            Command="{Binding NavigateToConfigCommand}"
+                    <Button Command="{Binding NavigateToConfigCommand}"
                             Style="{StaticResource NavButtonStyle}">
                         <Button.ContentTemplate>
                             <DataTemplate>
@@ -86,8 +115,7 @@
                         </Button.ContentTemplate>
                     </Button>
 
-                    <Button Content="      报警日志"
-                            Command="{Binding NavigateToAlarmLogCommand}"
+                    <Button Command="{Binding NavigateToAlarmLogCommand}"
                             Style="{StaticResource NavButtonStyle}">
                         <Button.ContentTemplate>
                             <DataTemplate>
@@ -96,6 +124,22 @@
                                                             Width="20" Height="20"
                                                             VerticalAlignment="Center"/>
                                     <TextBlock Text="  报警日志" 
+                                               VerticalAlignment="Center"
+                                               FontSize="14"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </Button.ContentTemplate>
+                    </Button>
+
+                    <Button Command="{Binding NavigateToStatisticsCommand}"
+                            Style="{StaticResource NavButtonStyle}">
+                        <Button.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ChartBellCurve" 
+                                                            Width="20" Height="20"
+                                                            VerticalAlignment="Center"/>
+                                    <TextBlock Text="  数据统计" 
                                                VerticalAlignment="Center"
                                                FontSize="14"/>
                                 </StackPanel>
@@ -124,6 +168,9 @@
                 </DataTemplate>
                 <DataTemplate DataType="{x:Type vm:AlarmLogViewModel}">
                     <views:AlarmLogView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:StatisticsViewModel}">
+                    <views:StatisticsView/>
                 </DataTemplate>
             </ContentControl.Resources>
         </ContentControl>
