@@ -34,7 +34,7 @@
 
 ## 🖥️ 软件界面
 
-![主界面预览](Resources/Screenshots/main-window.png)
+![主界面预览](Resources/Screenshots/overview.png)
 
 *左侧深色导航栏 + 右侧内容区域，工业青（Cyan）主题配色*
 
