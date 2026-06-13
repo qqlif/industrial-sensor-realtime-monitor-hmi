@@ -1,0 +1,131 @@
+﻿
+    
+    
+    
+    
+    
+    
+    <Window x:Class="工业传感器实时监控上位机.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:工业传感器实时监控上位机.Views"
+        xmlns:vm="clr-namespace:工业传感器实时监控上位机.ViewModels"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="工业传感器实时监控上位机" Height="800" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        Background="{DynamicResource MaterialDesignPaper}"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 左侧导航栏（Drawer 风格） -->
+        <Border Grid.Column="0" Background="{DynamicResource MaterialDesignDarkBackground}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 应用标题 -->
+                <StackPanel Grid.Row="0" Margin="16,24,16,32">
+                    <materialDesign:PackIcon Kind="AccessPoint" 
+                                            Width="40" Height="40" 
+                                            Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                            HorizontalAlignment="Center"/>
+                    <TextBlock Text="传感器监控" 
+                               FontSize="20" FontWeight="Bold" 
+                               Foreground="{DynamicResource MaterialDesignBody}"
+                               HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                    <TextBlock Text="工业上位机" 
+                               FontSize="12"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- 导航按钮 -->
+                <StackPanel Grid.Row="1" Margin="8,0">
+                    <Button Content="      实时监控" 
+                            Command="{Binding NavigateToMonitorCommand}"
+                            Style="{StaticResource NavButtonStyle}">
+                        <Button.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="MonitorDashboard" 
+                                                            Width="20" Height="20"
+                                                            VerticalAlignment="Center"/>
+                                    <TextBlock Text="  实时监控" 
+                                               VerticalAlignment="Center"
+                                               FontSize="14"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </Button.ContentTemplate>
+                    </Button>
+
+                    <Button Content="      参数配置"
+                            Command="{Binding NavigateToConfigCommand}"
+                            Style="{StaticResource NavButtonStyle}">
+                        <Button.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Tune" 
+                                                            Width="20" Height="20"
+                                                            VerticalAlignment="Center"/>
+                                    <TextBlock Text="  参数配置" 
+                                               VerticalAlignment="Center"
+                                               FontSize="14"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </Button.ContentTemplate>
+                    </Button>
+
+                    <Button Content="      报警日志"
+                            Command="{Binding NavigateToAlarmLogCommand}"
+                            Style="{StaticResource NavButtonStyle}">
+                        <Button.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="AlertCircle" 
+                                                            Width="20" Height="20"
+                                                            VerticalAlignment="Center"/>
+                                    <TextBlock Text="  报警日志" 
+                                               VerticalAlignment="Center"
+                                               FontSize="14"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </Button.ContentTemplate>
+                    </Button>
+                </StackPanel>
+
+                <!-- 底部版本信息 -->
+                <TextBlock Grid.Row="2" Text="{Binding CurrentPageName, StringFormat=当前: {0}}"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"
+                           FontSize="12" HorizontalAlignment="Center"
+                           Margin="0,0,0,16"/>
+            </Grid>
+        </Border>
+
+        <!-- 右侧内容区域 -->
+        <ContentControl Grid.Column="1" Content="{Binding CurrentViewModel}"
+                        Margin="8">
+            <ContentControl.Resources>
+                <DataTemplate DataType="{x:Type vm:MonitorViewModel}">
+                    <views:MonitorView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:ConfigViewModel}">
+                    <views:ConfigView/>
+                </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:AlarmLogViewModel}">
+                    <views:AlarmLogView/>
+                </DataTemplate>
+            </ContentControl.Resources>
+        </ContentControl>
+    </Grid>
+</Window>

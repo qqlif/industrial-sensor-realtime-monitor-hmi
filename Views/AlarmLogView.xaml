@@ -1,0 +1,117 @@
+<UserControl x:Class="工业传感器实时监控上位机.Views.AlarmLogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="1000"
+             TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+             Background="Transparent">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+            <materialDesign:PackIcon Kind="AlertCircle" Width="24" Height="24"
+                                    Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                    VerticalAlignment="Center"/>
+            <TextBlock Text=" 报警日志" FontSize="22" FontWeight="Bold" 
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- 筛选条件 -->
+        <Border Grid.Row="1" 
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12" Padding="16" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="140"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="传感器:" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                <TextBox Grid.Column="1" 
+                         Text="{Binding FilterSensorName}" 
+                         Margin="0,0,16,0" Width="140"/>
+
+                <TextBlock Grid.Column="2" Text="开始:" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                <DatePicker Grid.Column="3" SelectedDate="{Binding FilterStart}" 
+                            Margin="0,0,16,0"/>
+
+                <TextBlock Grid.Column="4" Text="结束:" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                <DatePicker Grid.Column="5" SelectedDate="{Binding FilterEnd}" 
+                            Margin="0,0,16,0"/>
+
+                <Button Grid.Column="6" Content="筛选" Command="{Binding RefreshCommand}" 
+                        Style="{StaticResource PrimaryButtonStyle}"/>
+            </Grid>
+        </Border>
+
+        <!-- 报警记录列表 -->
+        <Border Grid.Row="2" 
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12" Padding="0" Margin="0,0,0,12">
+            <DataGrid ItemsSource="{Binding DisplayRecords}" AutoGenerateColumns="False" 
+                      IsReadOnly="True"
+                      Margin="0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="时间" Width="180" 
+                                        Binding="{Binding AlarmTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss.fff}}"/>
+                    <DataGridTextColumn Header="传感器名称" Width="140" Binding="{Binding SensorName}"/>
+                    <DataGridTextColumn Header="传感器类型" Width="90" Binding="{Binding SensorType}"/>
+                    <DataGridTextColumn Header="当前值" Width="90" 
+                                        Binding="{Binding CurrentValue, StringFormat={}{0:F2}}"/>
+                    <DataGridTextColumn Header="阈值" Width="90" 
+                                        Binding="{Binding Threshold, StringFormat={}{0:F2}}"/>
+                    <DataGridTextColumn Header="报警类型" Width="90" Binding="{Binding AlarmType}"/>
+                    <DataGridTextColumn Header="单位" Width="70" Binding="{Binding Unit}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- 底部统计和操作 -->
+        <Border Grid.Row="3" 
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12" Padding="16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}">
+                    <Run Text="共 "/>
+                    <Run FontWeight="Bold" Text="{Binding RecordCount}"/>
+                    <Run Text=" 条报警记录"/>
+                </TextBlock>
+
+                <Button Grid.Column="1" Content="清除记录" 
+                        Command="{Binding ClearCommand}" 
+                        Style="{StaticResource DangerButtonStyle}"
+                        Margin="0,0,8,0"/>
+                <Button Grid.Column="2" Content="导出 CSV" 
+                        Command="{Binding ExportCommand}" 
+                        Style="{StaticResource SuccessButtonStyle}"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

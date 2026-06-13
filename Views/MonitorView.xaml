@@ -1,0 +1,237 @@
+﻿<UserControl x:Class="工业传感器实时监控上位机.Views.MonitorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:models="clr-namespace:工业传感器实时监控上位机.Models"
+             xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1200"
+             TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+             Background="Transparent">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+    </UserControl.Resources>
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部：数据源控制 -->
+        <Border Grid.Row="0"
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12"
+                Padding="16"
+                Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Ellipse Grid.Column="0" Width="10" Height="10"
+                         Fill="{DynamicResource PrimaryHueMidBrush}"
+                         VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="数据源状态：" FontSize="13"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                    <TextBlock Text="{Binding SourceStatus}" FontSize="13"
+                               FontWeight="Bold" Margin="4,0,0,0"/>
+                </StackPanel>
+
+                <Button Grid.Column="2" Content="启动数据源"
+                        Command="{Binding StartCommand}"
+                        IsEnabled="{Binding CanStart}"
+                        Style="{StaticResource SuccessButtonStyle}"
+                        Margin="0,0,8,0"/>
+
+                <Button Grid.Column="3" Content="停止数据源"
+                        Command="{Binding StopCommand}"
+                        IsEnabled="{Binding CanStop}"
+                        Style="{StaticResource DangerButtonStyle}"/>
+            </Grid>
+        </Border>
+
+        <!-- 中间：仪表盘面板 -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 温湿度传感器卡片 -->
+            <Border Grid.Column="0"
+                    Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                    Background="{DynamicResource MaterialDesignCardBackground}"
+                    CornerRadius="12" Padding="20" Margin="6">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <materialDesign:PackIcon Kind="TemperatureCelsius"
+                                                Width="24" Height="24"
+                                                Foreground="#42A5F5"
+                                                VerticalAlignment="Center"/>
+                        <TextBlock Text=" 温湿度传感器" FontSize="15" FontWeight="Bold"
+                                   Foreground="#42A5F5" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding TemperatureData.Value, StringFormat={}{0:F2}}"
+                               FontSize="42" FontWeight="Light" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBody}"
+                               Margin="0,0,0,4"/>
+
+                    <TextBlock Text="{Binding TemperatureData.Unit, StringFormat=单位: {0}}"
+                               FontSize="13" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+
+                    <TextBlock Text="{Binding TemperatureData.Timestamp, StringFormat=HH:mm:ss.fff}"
+                               FontSize="11" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Margin="0,8,0,0"/>
+
+                    <Border CornerRadius="4" Background="#F44336" Padding="6,2"
+                            HorizontalAlignment="Center" Margin="0,8,0,0"
+                            Visibility="{Binding TemperatureData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="⚠ 报警"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- 压力传感器卡片 -->
+            <Border Grid.Column="1"
+                    Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                    Background="{DynamicResource MaterialDesignCardBackground}"
+                    CornerRadius="12" Padding="20" Margin="6">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <materialDesign:PackIcon Kind="Speedometer"
+                                                Width="24" Height="24"
+                                                Foreground="#FFA726"
+                                                VerticalAlignment="Center"/>
+                        <TextBlock Text=" 压力传感器" FontSize="15" FontWeight="Bold"
+                                   Foreground="#FFA726" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding PressureData.Value, StringFormat={}{0:F2}}"
+                               FontSize="42" FontWeight="Light" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBody}"
+                               Margin="0,0,0,4"/>
+
+                    <TextBlock Text="{Binding PressureData.Unit, StringFormat=单位: {0}}"
+                               FontSize="13" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+
+                    <TextBlock Text="{Binding PressureData.Timestamp, StringFormat=HH:mm:ss.fff}"
+                               FontSize="11" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Margin="0,8,0,0"/>
+
+                    <Border CornerRadius="4" Background="#F44336" Padding="6,2"
+                            HorizontalAlignment="Center" Margin="0,8,0,0"
+                            Visibility="{Binding PressureData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="⚠ 报警"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- 振动传感器卡片 -->
+            <Border Grid.Column="2"
+                    Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                    Background="{DynamicResource MaterialDesignCardBackground}"
+                    CornerRadius="12" Padding="20" Margin="6">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <materialDesign:PackIcon Kind="Vibration"
+                                                Width="24" Height="24"
+                                                Foreground="#AB47BC"
+                                                VerticalAlignment="Center"/>
+                        <TextBlock Text=" 振动传感器" FontSize="15" FontWeight="Bold"
+                                   Foreground="#AB47BC" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding VibrationData.Value, StringFormat={}{0:F2}}"
+                               FontSize="42" FontWeight="Light" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBody}"
+                               Margin="0,0,0,4"/>
+
+                    <TextBlock Text="{Binding VibrationData.Unit, StringFormat=单位: {0}}"
+                               FontSize="13" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+
+                    <TextBlock Text="{Binding VibrationData.Timestamp, StringFormat=HH:mm:ss.fff}"
+                               FontSize="11" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Margin="0,8,0,0"/>
+
+                    <Border CornerRadius="4" Background="#F44336" Padding="6,2"
+                            HorizontalAlignment="Center" Margin="0,8,0,0"
+                            Visibility="{Binding VibrationData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="⚠ 报警"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- 底部：实时曲线 -->
+        <Border Grid.Row="2"
+                Effect="{DynamicResource MaterialDesignShadowDepth1}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                CornerRadius="12" Padding="16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                    <materialDesign:PackIcon Kind="ChartTimelineVariant"
+                                            Width="20" Height="20"
+                                            Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                            VerticalAlignment="Center"/>
+                    <TextBlock Text=" 实时数据曲线" FontSize="16" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <TabControl Grid.Row="1"
+                            Margin="0" Padding="0"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            Style="{StaticResource MaterialDesignFilledTabControl}"
+                            materialDesign:ColorZoneAssist.Mode="Standard"
+                            SelectionChanged="TabControl_SelectionChanged">
+                    <TabItem Header="温湿度" Padding="0" Margin="0">
+                        <Grid Margin="0">
+                            <ScottPlot:WpfPlot x:Name="TemperaturePlot"
+                                               HorizontalAlignment="Stretch"
+                                               VerticalAlignment="Stretch"/>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="压力" Padding="0" Margin="0">
+                        <Grid Margin="0">
+                            <ScottPlot:WpfPlot x:Name="PressurePlot"
+                                               HorizontalAlignment="Stretch"
+                                               VerticalAlignment="Stretch"/>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="振动" Padding="0" Margin="0">
+                        <Grid Margin="0">
+                            <ScottPlot:WpfPlot x:Name="VibrationPlot"
+                                               HorizontalAlignment="Stretch"
+                                               VerticalAlignment="Stretch"/>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
