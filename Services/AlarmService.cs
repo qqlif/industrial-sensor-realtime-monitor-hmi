@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Data;
@@ -13,7 +14,10 @@ namespace 工业传感器实时监控上位机.Services;
 public class AlarmService : IAlarmService
 {
     private readonly IDataStorage _storage;      // 数据持久化服务，用于存储报警记录
-    private readonly object _lock = new();        // 去重检查的线程锁
+    private readonly object _lock = new();        // 集合同步锁
+
+    /// <summary>各传感器当前报警状态（true=报警中，false=正常）</summary>
+    private readonly ConcurrentDictionary<string, bool> _sensorAlarmStates = new();
 
     /// <summary>报警记录集合（绑定到 UI 列表）</summary>
     public ObservableCollection<AlarmRecord> AlarmRecords { get; } = new();
@@ -31,48 +35,66 @@ public class AlarmService : IAlarmService
 
     /// <summary>
     /// 检查传感器数据是否超出配置的上下限阈值
-    /// 若超限则创建报警记录并触发后续处理
+    /// 仅在状态从"正常 → 报警"转换时生成报警记录（防重复洪泛）
+    /// 状态从"报警 → 正常"时清除标记，下次超阈值可再次触发
     /// </summary>
     /// <param name="data">当前传感器采样数据</param>
     /// <param name="config">该传感器的报警配置（上下限）</param>
     /// <returns>是否触发了报警</returns>
     public bool CheckAlarm(SensorData data, SensorConfig config)
     {
-        // 检查是否超出上限
-        if (data.Value > config.AlarmUpper)
-        {
-            var record = new AlarmRecord
-            {
-                SensorName = data.SensorName,
-                SensorType = data.SensorType,
-                AlarmTime = data.Timestamp,
-                CurrentValue = data.Value,
-                Threshold = config.AlarmUpper,
-                AlarmType = "上限超限",
-                Unit = data.Unit
-            };
-            AddAlarmRecord(record);
-            return true;
-        }
+        bool isCurrentlyAlarming = data.Value > config.AlarmUpper || data.Value < config.AlarmLower;
+        string sensorKey = data.SensorName;
 
-        // 检查是否超出下限
-        if (data.Value < config.AlarmLower)
-        {
-            var record = new AlarmRecord
-            {
-                SensorName = data.SensorName,
-                SensorType = data.SensorType,
-                AlarmTime = data.Timestamp,
-                CurrentValue = data.Value,
-                Threshold = config.AlarmLower,
-                AlarmType = "下限超限",
-                Unit = data.Unit
-            };
-            AddAlarmRecord(record);
-            return true;
-        }
+        // 获取上次状态
+        bool wasAlarming = _sensorAlarmStates.GetValueOrDefault(sensorKey, false);
 
-        return false;
+        if (isCurrentlyAlarming)
+        {
+            // 状态转换：正常 → 报警，才生成新记录
+            if (!wasAlarming)
+            {
+                _sensorAlarmStates[sensorKey] = true;
+
+                string alarmType;
+                double threshold;
+
+                if (data.Value > config.AlarmUpper)
+                {
+                    alarmType = "上限超限";
+                    threshold = config.AlarmUpper;
+                }
+                else
+                {
+                    alarmType = "下限超限";
+                    threshold = config.AlarmLower;
+                }
+
+                var record = new AlarmRecord
+                {
+                    SensorName = data.SensorName,
+                    SensorType = data.SensorType,
+                    AlarmTime = data.Timestamp,
+                    CurrentValue = data.Value,
+                    Threshold = threshold,
+                    AlarmType = alarmType,
+                    Unit = data.Unit
+                };
+                AddAlarmRecord(record);
+                return true;
+            }
+            // 持续报警中 → 不重复记录
+            return false;
+        }
+        else
+        {
+            // 恢复正常 → 清除报警状态标记，允许下次超阈值重新触发
+            if (wasAlarming)
+            {
+                _sensorAlarmStates[sensorKey] = false;
+            }
+            return false;
+        }
     }
 
     /// <summary>
@@ -118,10 +140,11 @@ public class AlarmService : IAlarmService
     }
 
     /// <summary>
-    /// 清除所有报警记录（线程安全，通过 BindingOperations 同步）
+    /// 清除所有报警记录和传感器报警状态（线程安全）
     /// </summary>
     public void ClearAlarms()
     {
+        _sensorAlarmStates.Clear();
         lock (_lock)
         {
             AlarmRecords.Clear();

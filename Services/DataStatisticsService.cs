@@ -18,48 +18,26 @@ public class DataStatisticsService
 
     /// <summary>
     /// 计算指定传感器在时间段内的统计数据
+    /// 通过 QuerySensorDataAsync 直接读取数据，避免写/读临时文件的 I/O 浪费
     /// </summary>
     public async Task<SensorStatistics> CalculateStatisticsAsync(
         string sensorName, DateTime start, DateTime end)
     {
-        // 导出数据到临时文件进行分析
-        var tempFile = Path.Combine(Path.GetTempPath(), $"stats_{Guid.NewGuid():N}.csv");
         var values = new List<double>();
         var timestamps = new List<DateTime>();
 
         try
         {
-            await _storage.ExportSensorDataAsync(start, end, tempFile);
-
-            if (File.Exists(tempFile))
+            var dataList = await _storage.QuerySensorDataAsync(start, end, sensorName);
+            foreach (var data in dataList)
             {
-                var lines = await File.ReadAllLinesAsync(tempFile);
-
-                foreach (var line in lines.Skip(1))
-                {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    var parts = line.Split(',');
-
-                    if (parts.Length >= 6 &&
-                        parts[1] == sensorName &&
-                        DateTime.TryParse(parts[0], out var ts) &&
-                        double.TryParse(parts[3], System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out var value))
-                    {
-                        values.Add(value);
-                        timestamps.Add(ts);
-                    }
-                }
+                values.Add(data.Value);
+                timestamps.Add(data.Timestamp);
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[DataStatistics] 统计数据失败: {ex.Message}");
-        }
-        finally
-        {
-            if (File.Exists(tempFile))
-                File.Delete(tempFile);
         }
 
         if (values.Count == 0)

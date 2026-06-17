@@ -83,26 +83,33 @@ public partial class MonitorView : UserControl
 
         Dispatcher.Invoke(() =>
         {
-            UpdateSeries(vm.TemperatureData, TemperaturePlot, _tempStreamer);
-            UpdateSeries(vm.PressureData, PressurePlot, _pressureStreamer);
-            UpdateSeries(vm.VibrationData, VibrationPlot, _vibrationStreamer);
+            // 先添加数据到各图表
+            AddToSeries(vm.TemperatureData, _tempStreamer);
+            AddToSeries(vm.PressureData, _pressureStreamer);
+            AddToSeries(vm.VibrationData, _vibrationStreamer);
+
+            // 每 N 轮数据统一触发一次 AutoScale 和 Refresh（一个全局计数器）
+            _updateCounter++;
+            if (_updateCounter % RefreshInterval == 0)
+            {
+                TemperaturePlot.Plot.Axes.AutoScale();
+                TemperaturePlot.Refresh();
+                PressurePlot.Plot.Axes.AutoScale();
+                PressurePlot.Refresh();
+                VibrationPlot.Plot.Axes.AutoScale();
+                VibrationPlot.Refresh();
+            }
         });
     }
 
-    private void UpdateSeries(SensorData? data, WpfPlot plot, ScottPlot.Plottables.DataStreamer? streamer)
+    /// <summary>
+    /// 向 DataStreamer 添加单条数据（仅添加，不触发 Refresh）
+    /// </summary>
+    private static void AddToSeries(SensorData? data, ScottPlot.Plottables.DataStreamer? streamer)
     {
         if (data == null || streamer == null)
             return;
 
-        // DataStreamer 自动管理 X 轴（自增序号）和固定容量（500点），防 OOM
         streamer.Add(data.Value);
-
-        // 每 N 个点触发一次 AutoScale 和 Refresh，降低刷新频率
-        _updateCounter++;
-        if (_updateCounter % RefreshInterval == 0)
-        {
-            plot.Plot.Axes.AutoScale();
-            plot.Refresh();
-        }
     }
 }

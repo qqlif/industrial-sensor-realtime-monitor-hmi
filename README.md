@@ -45,11 +45,11 @@
 | **.NET 8** | 目标框架 |
 | **WPF** | 桌面 UI 框架 |
 | **Material Design Themes** | Material Design 风格 UI 控件库 |
-| **CommunityToolkit.Mvvm** | MVVM 架构支持（源生成器） |
-| **LiveChartsCore** | 实时数据图表 |
-| **CsvHelper / SQLite** | 数据持久化 |
+| **自定义 ViewModelBase / RelayCommand** | MVVM 架构（轻量自实现，无外部依赖） |
+| **ScottPlot.WPF** | 高性能实时数据曲线（DataStreamer 固定容量） |
+| **CSV 文件 / SQLite** | 数据持久化（CSV 按日期分文件，SQLite 可选） |
 | **Microsoft.Extensions.Hosting** | 依赖注入与生命周期管理 |
-| **Serilog** | 结构化日志 |
+| **MaterialDesignThemes** | Material Design 3 深色主题 UI |
 
 ## 项目结构
 

@@ -15,6 +15,9 @@ public interface IDataStorage
     /// <summary>批量保存传感器数据（提高高频采集时的写入性能）</summary>
     Task SaveSensorDataBatchAsync(IEnumerable<SensorData> dataList);
 
+    /// <summary>按时间范围（和可选传感器名称）查询传感器数据</summary>
+    Task<List<SensorData>> QuerySensorDataAsync(DateTime start, DateTime end, string? sensorName = null);
+
     /// <summary>导出指定时间段的传感器数据到 CSV 文件</summary>
     Task ExportSensorDataAsync(DateTime start, DateTime end, string filePath);
 

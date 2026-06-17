@@ -1,5 +1,6 @@
 using System.Media;
 using System.Windows;
+using System.Windows.Threading;
 using 工业传感器实时监控上位机.Models;
 
 namespace 工业传感器实时监控上位机.Services;
@@ -12,7 +13,6 @@ namespace 工业传感器实时监控上位机.Services;
 public class AlarmNotificationService : IDisposable
 {
     private readonly IAlarmService _alarmService;    // 报警服务
-    private readonly DialogService _dialogService;    // 弹窗服务
     private bool _disposed;                           // 是否已释放
     private bool _soundEnabled = true;                // 是否启用报警音效
     private bool _trayNotificationEnabled = true;     // 是否启用托盘通知
@@ -31,10 +31,9 @@ public class AlarmNotificationService : IDisposable
         set => _trayNotificationEnabled = value;
     }
 
-    public AlarmNotificationService(IAlarmService alarmService, DialogService dialogService)
+    public AlarmNotificationService(IAlarmService alarmService)
     {
         _alarmService = alarmService;
-        _dialogService = dialogService;
 
         // 监听报警触发事件
         _alarmService.AlarmTriggered += OnAlarmTriggered;
@@ -131,18 +130,83 @@ public class AlarmNotificationService : IDisposable
     }
 
     /// <summary>
-    /// 通知回退方案：使用 DialogService 弹窗
+    /// 非阻塞通知：创建临时 Toast 窗口，3 秒后自动关闭
+    /// 不阻塞 UI 线程，不影响实时数据刷新和图表渲染
     /// </summary>
     private void ShowNotificationFallback(AlarmRecord record)
     {
-        var alarmType = record.AlarmType == "上限超限" ? "↑" : "↓";
-        _dialogService.ShowWarning(
-            $"传感器: {record.SensorName}\n" +
-            $"报警类型: {record.AlarmType} {alarmType}\n" +
-            $"当前值: {record.CurrentValue:F2} {record.Unit}\n" +
-            $"阈值: {record.Threshold:F2} {record.Unit}\n" +
-            $"时间: {record.AlarmTime:HH:mm:ss.fff}",
-            "⚠ 传感器报警");
+        Application.Current?.Dispatcher.BeginInvoke(DispatcherPriority.Normal, () =>
+        {
+            try
+            {
+                var alarmType = record.AlarmType == "上限超限" ? "↑" : "↓";
+                var toast = new Window
+                {
+                    Title = "传感器报警",
+                    Width = 360,
+                    Height = 160,
+                    WindowStyle = WindowStyle.ToolWindow,
+                    WindowStartupLocation = WindowStartupLocation.Manual,
+                    Top = SystemParameters.WorkArea.Top + 12,
+                    Left = SystemParameters.WorkArea.Right - 372,
+                    Topmost = true,
+                    ShowInTaskbar = false,
+                    ResizeMode = ResizeMode.NoResize,
+                    Background = System.Windows.Media.Brushes.DarkRed,
+                    Foreground = System.Windows.Media.Brushes.White,
+                    FontSize = 13,
+                    Content = new System.Windows.Controls.StackPanel
+                    {
+                        Margin = new Thickness(16),
+                        Children =
+                        {
+                            new System.Windows.Controls.TextBlock
+                            {
+                                Text = "⚠ 传感器报警",
+                                FontSize = 16,
+                                FontWeight = FontWeights.Bold,
+                                Margin = new Thickness(0, 0, 0, 12)
+                            },
+                            new System.Windows.Controls.TextBlock
+                            {
+                                Text = $"传感器: {record.SensorName}"
+                            },
+                            new System.Windows.Controls.TextBlock
+                            {
+                                Text = $"报警类型: {record.AlarmType} {alarmType}"
+                            },
+                            new System.Windows.Controls.TextBlock
+                            {
+                                Text = $"当前值: {record.CurrentValue:F2} {record.Unit}  (阈值: {record.Threshold:F2} {record.Unit})"
+                            },
+                            new System.Windows.Controls.TextBlock
+                            {
+                                Text = $"时间: {record.AlarmTime:HH:mm:ss.fff}",
+                                Margin = new Thickness(0, 0, 0, 8)
+                            }
+                        }
+                    }
+                };
+
+                toast.Show();
+
+                // 3 秒后自动关闭，不阻塞 UI
+                var timer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(3)
+                };
+                timer.Tick += (_, _) =>
+                {
+                    timer.Stop();
+                    toast.Close();
+                };
+                timer.Start();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AlarmNotification] Toast 通知失败: {ex.Message}");
+            }
+        });
     }
 
     /// <summary>

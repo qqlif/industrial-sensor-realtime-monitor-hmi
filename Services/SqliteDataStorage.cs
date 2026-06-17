@@ -274,6 +274,61 @@ public class SqliteDataStorage : IDataStorage, IDisposable
         }
     }
 
+    /// <summary>
+    /// 按时间范围查询传感器数据，直接返回 SensorData 对象列表
+    /// 避免 ExportSensorDataAsync 写临时文件再读回的 I/O 浪费
+    /// </summary>
+    public async Task<List<SensorData>> QuerySensorDataAsync(DateTime start, DateTime end, string? sensorName = null)
+    {
+        // 查询前先刷写缓冲区，确保数据完整性
+        await FlushAsync();
+
+        var results = new List<SensorData>();
+
+        using var conn = await CreateConnectionAsync();
+        using var cmd = conn.CreateCommand();
+
+        if (string.IsNullOrEmpty(sensorName))
+        {
+            cmd.CommandText = """
+                SELECT timestamp, sensor_name, sensor_type, value, unit, is_alarm
+                FROM sensor_data
+                WHERE timestamp >= @start AND timestamp <= @end
+                ORDER BY timestamp ASC
+                """;
+        }
+        else
+        {
+            cmd.CommandText = """
+                SELECT timestamp, sensor_name, sensor_type, value, unit, is_alarm
+                FROM sensor_data
+                WHERE timestamp >= @start AND timestamp <= @end AND sensor_name = @sensorName
+                ORDER BY timestamp ASC
+                """;
+            cmd.Parameters.AddWithValue("@sensorName", sensorName);
+        }
+
+        cmd.Parameters.AddWithValue("@start", start.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+        cmd.Parameters.AddWithValue("@end", end.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            results.Add(new SensorData
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Timestamp = DateTime.Parse(reader.GetString(0)),
+                SensorName = reader.GetString(1),
+                SensorType = (SensorType)reader.GetInt32(2),
+                Value = reader.GetDouble(3),
+                Unit = reader.GetString(4),
+                IsAlarm = reader.GetInt32(5) == 1
+            });
+        }
+
+        return results;
+    }
+
     public async Task SaveAlarmRecordAsync(AlarmRecord record)
     {
         using var conn = await CreateConnectionAsync();
@@ -388,7 +443,8 @@ public class SqliteDataStorage : IDataStorage, IDisposable
             {
                 if (_sensorBuffer.Count > 0)
                 {
-                    FlushSensorBufferAsync().GetAwaiter().GetResult();
+                    // 使用 Task.Run 避免在 UI 线程同步等待异步操作导致死锁
+                    Task.Run(FlushSensorBufferAsync).GetAwaiter().GetResult();
                 }
             }
             catch { }

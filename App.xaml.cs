@@ -56,6 +56,7 @@ namespace 工业传感器实时监控上位机
                     });
                     services.AddSingleton<IAlarmService, AlarmService>();
                     services.AddSingleton<DialogService>();
+                    services.AddSingleton<AlarmNotificationService>();
                     services.AddSingleton<AgentMemoryService>();
                     services.AddSingleton<McpServerService>();
                     services.AddSingleton<DataStatisticsService>();
@@ -74,6 +75,9 @@ namespace 工业传感器实时监控上位机
                     services.AddTransient<StatisticsView>();
                 })
                 .Build();
+
+            // 解析 AlarmNotificationService 使其开始监听报警事件
+            _host.Services.GetRequiredService<AlarmNotificationService>();
 
             // 解析 MainViewModel 并设置为主窗口 DataContext
             var mainViewModel = _host.Services.GetRequiredService<MainViewModel>();

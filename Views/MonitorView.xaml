@@ -143,11 +143,15 @@
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
                                Margin="0,8,0,0"/>
 
-                    <Border CornerRadius="4" Background="#F44336" Padding="6,2"
+                    <Border CornerRadius="4" Background="#F44336" Padding="8,2"
                             HorizontalAlignment="Center" Margin="0,8,0,0"
                             Visibility="{Binding TemperatureData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="? 报警"
-                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="BellRing" Width="16" Height="16"
+                                                    Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text=" 报警" Foreground="White" FontWeight="Bold"
+                                       FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
             </Border>
@@ -181,11 +185,15 @@
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
                                Margin="0,8,0,0"/>
 
-                    <Border CornerRadius="4" Background="#F44336" Padding="6,2"
+                    <Border CornerRadius="4" Background="#F44336" Padding="8,2"
                             HorizontalAlignment="Center" Margin="0,8,0,0"
                             Visibility="{Binding PressureData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="? 报警"
-                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="BellRing" Width="16" Height="16"
+                                                    Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text=" 报警" Foreground="White" FontWeight="Bold"
+                                       FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
             </Border>
@@ -219,11 +227,15 @@
                                Foreground="{DynamicResource MaterialDesignBodyLight}"
                                Margin="0,8,0,0"/>
 
-                    <Border CornerRadius="4" Background="#F44336" Padding="6,2"
+                    <Border CornerRadius="4" Background="#F44336" Padding="8,2"
                             HorizontalAlignment="Center" Margin="0,8,0,0"
                             Visibility="{Binding VibrationData.IsAlarm, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="? 报警"
-                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="BellRing" Width="16" Height="16"
+                                                    Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text=" 报警" Foreground="White" FontWeight="Bold"
+                                       FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
             </Border>

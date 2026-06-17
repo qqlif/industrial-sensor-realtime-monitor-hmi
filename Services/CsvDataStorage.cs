@@ -32,9 +32,15 @@ public class CsvDataStorage : IDataStorage
         Directory.CreateDirectory(_configDir);
     }
 
+    private static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(3);
+
     public async Task SaveSensorDataAsync(SensorData data)
     {
-        await _sensorLock.WaitAsync();
+        if (!await _sensorLock.WaitAsync(LockTimeout))
+        {
+            System.Diagnostics.Debug.WriteLine("[CsvDataStorage] SaveSensorDataAsync 获取锁超时，跳过写入");
+            return;
+        }
         try
         {
             _sensorBuffer.Add(data);
@@ -51,7 +57,11 @@ public class CsvDataStorage : IDataStorage
 
     public async Task SaveSensorDataBatchAsync(IEnumerable<SensorData> dataList)
     {
-        await _sensorLock.WaitAsync();
+        if (!await _sensorLock.WaitAsync(LockTimeout))
+        {
+            System.Diagnostics.Debug.WriteLine("[CsvDataStorage] SaveSensorDataBatchAsync 获取锁超时，跳过写入");
+            return;
+        }
         try
         {
             _sensorBuffer.AddRange(dataList);
@@ -144,7 +154,11 @@ public class CsvDataStorage : IDataStorage
 
     public async Task SaveAlarmRecordAsync(AlarmRecord record)
     {
-        await _alarmLock.WaitAsync();
+        if (!await _alarmLock.WaitAsync(LockTimeout))
+        {
+            System.Diagnostics.Debug.WriteLine("[CsvDataStorage] SaveAlarmRecordAsync 获取锁超时，跳过写入");
+            return;
+        }
         try
         {
             var fileName = $"alarm_log_{DateTime.Now:yyyyMMdd}.csv";
@@ -183,6 +197,63 @@ public class CsvDataStorage : IDataStorage
         }
     }
 
+    /// <summary>
+    /// 按时间范围查询传感器数据，直接返回 SensorData 对象列表
+    /// 避免 ExportSensorDataAsync 写临时文件再读回的 I/O 浪费
+    /// </summary>
+    public async Task<List<SensorData>> QuerySensorDataAsync(DateTime start, DateTime end, string? sensorName = null)
+    {
+        var results = new List<SensorData>();
+        var csvFiles = Directory.GetFiles(_outputDir, "sensor_data_*.csv")
+                                .OrderBy(f => f)
+                                .ToList();
+
+        foreach (var csvFile in csvFiles)
+        {
+            try
+            {
+                using var fs = new FileStream(csvFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs, Encoding.UTF8);
+
+                string? line;
+                var isFirstLine = true;
+                while ((line = await reader.ReadLineAsync()) != null)
+                {
+                    if (isFirstLine) { isFirstLine = false; continue; }
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    var parts = line.Split(',');
+                    if (parts.Length < 6) continue;
+
+                    if (DateTime.TryParse(parts[0], out var timestamp) &&
+                        timestamp >= start && timestamp <= end &&
+                        (sensorName == null || parts[1] == sensorName) &&
+                        Enum.TryParse<SensorType>(parts[2], out var sensorType) &&
+                        double.TryParse(parts[3], System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out var value))
+                    {
+                        results.Add(new SensorData
+                        {
+                            Id = Guid.NewGuid().ToString("N"),
+                            Timestamp = timestamp,
+                            SensorName = parts[1],
+                            SensorType = sensorType,
+                            Value = value,
+                            Unit = parts[4],
+                            IsAlarm = bool.TryParse(parts[5], out var alarm) && alarm
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"读取文件 {csvFile} 失败: {ex.Message}");
+            }
+        }
+
+        return results;
+    }
+
     public async Task<GlobalConfig> LoadConfigAsync()
     {
         try
@@ -219,7 +290,11 @@ public class CsvDataStorage : IDataStorage
     /// </summary>
     public async Task FlushAsync()
     {
-        await _sensorLock.WaitAsync();
+        if (!await _sensorLock.WaitAsync(LockTimeout))
+        {
+            System.Diagnostics.Debug.WriteLine("[CsvDataStorage] FlushAsync 获取锁超时");
+            return;
+        }
         try
         {
             if (_sensorBuffer.Count > 0)
